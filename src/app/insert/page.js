@@ -1,7 +1,7 @@
 "use client";
 
 import { createClient } from "@/utils/supabase/client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 export default function Insert() {
@@ -22,6 +22,21 @@ export default function Insert() {
   });
 
   const [thumbnail, setThumbnail] = useState(null);
+  const [user, setUser] = useState(null);
+  const [authForm, setAuthform] = useState({
+    email: "",
+    password: "",
+  });
+
+  useEffect(() => {
+    //즉시 실행 함수 (()=>{...})()
+    (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setUser(user);
+    })();
+  }, [supabase.auth]);
 
   async function insertData(e) {
     e.preventDefault();
@@ -31,6 +46,9 @@ export default function Insert() {
     } else {
       console.log("데이터 입력 성공");
       router.push("/");
+    }
+    if (thumbnail) {
+      await uploadThumbnail(thumbnail);
     }
   }
   const handleChange = e => {
@@ -42,9 +60,80 @@ export default function Insert() {
     });
   };
 
+  const handleAuthChange = e => {
+    const { name, value } = e.target;
+    setAuthform(prev => ({ ...prev, [name]: value }));
+  };
+
   const handleFileChange = e => {
     setThumbnail(e.target.files[0]);
   };
+
+  async function uploadThumbnail(file) {
+    const ext = file.name.split(".").pop();
+    const fileName = `${crypto.randomUUID()}.${ext}`;
+
+    const { data, error } = await supabase.storage
+      .from("portfolio")
+      .upload(`thumbnail/${fileName}`, file);
+    if (error) {
+      // Handle error
+      console.error("파일 업로드 실패:", error);
+    } else {
+      // Handle success
+      console.log("파일 업로드 성공:");
+    }
+  }
+
+  //로그인 진행
+  const handleLogin = async e => {
+    e.preventDefault();
+    const { data, error } = await supabase.auth.signInWithPassword(authForm);
+    if (error) {
+      alert("로그인 실패", error.message);
+    } else {
+      alert("로그인 성공");
+      setUser(data.user);
+      router.refresh();
+    }
+  };
+
+  if (!user) {
+    return (
+      <div className="about_content shadow">
+        <h2 className="mb-3">관리자 로그인</h2>
+        <div className="contact_form">
+          <form onSubmit={handleLogin}>
+            <p className="field">
+              <label htmlFor="email">이메일</label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                placeholder="email"
+                required
+                onChange={handleAuthChange}
+              />
+            </p>
+            <p className="field">
+              <label htmlFor="password">비밀번호</label>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                placeholder="password"
+                required
+                onChange={handleAuthChange}
+              />
+            </p>
+            <p className="submit">
+              <input type="submit" className="primary-btn" value="로그인" />
+            </p>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="about_content shadow">
