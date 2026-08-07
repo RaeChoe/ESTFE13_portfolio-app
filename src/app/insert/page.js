@@ -1,7 +1,6 @@
 "use client";
-
 import { createClient } from "@/utils/supabase/client";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function Insert() {
@@ -29,7 +28,6 @@ export default function Insert() {
   });
 
   useEffect(() => {
-    //즉시 실행 함수 (()=>{...})()
     (async () => {
       const {
         data: { user },
@@ -40,12 +38,25 @@ export default function Insert() {
 
   async function insertData(e) {
     e.preventDefault();
-    const { error } = await supabase.from("portfolio").insert(formData);
+    //파일 업로드 후 경로 저장
+    let thumbnailPath = null;
+    if (thumbnail) {
+      thumbnailPath = await uploadThumbnail(thumbnail);
+      if (!thumbnailPath) {
+        alert("파일 업로드 실패");
+        return; //파일 업로드 실패시 글 등록 취소
+      }
+    }
+
+    const { error } = await supabase
+      .from("portfolio")
+      .insert({ ...formData, thumbnail: thumbnailPath });
     if (error) {
       console.log(error);
     } else {
       console.log("데이터 입력 성공");
       router.push("/");
+      router.refresh();
     }
     if (thumbnail) {
       await uploadThumbnail(thumbnail);
@@ -67,24 +78,23 @@ export default function Insert() {
 
   const handleFileChange = e => {
     setThumbnail(e.target.files[0]);
+    console.log(e.target.files[0]);
   };
 
   async function uploadThumbnail(file) {
     const ext = file.name.split(".").pop();
-    const fileName = `${crypto.randomUUID()}.${ext}`;
+    const filePath = `thumbnail/${crypto.randomUUID()}.${ext}`;
 
-    const { data, error } = await supabase.storage
-      .from("portfolio")
-      .upload(`thumbnail/${fileName}`, file);
+    const { data, error } = await supabase.storage.from("portfolio").upload(filePath, file);
     if (error) {
       // Handle error
       console.error("파일 업로드 실패:", error);
     } else {
       // Handle success
       console.log("파일 업로드 성공:");
+      return filePath;
     }
   }
-
   //로그인 진행
   const handleLogin = async e => {
     e.preventDefault();
@@ -101,7 +111,7 @@ export default function Insert() {
   if (!user) {
     return (
       <div className="about_content shadow">
-        <h2 className="mb-3">관리자 로그인</h2>
+        <h2>관리자 로그인</h2>
         <div className="contact_form">
           <form onSubmit={handleLogin}>
             <p className="field">
@@ -121,7 +131,7 @@ export default function Insert() {
                 type="password"
                 id="password"
                 name="password"
-                placeholder="password"
+                placeholder="비밀번호"
                 required
                 onChange={handleAuthChange}
               />
@@ -134,7 +144,6 @@ export default function Insert() {
       </div>
     );
   }
-
   return (
     <div className="about_content shadow">
       <h2 className="mb-3">데이터 입력</h2>
